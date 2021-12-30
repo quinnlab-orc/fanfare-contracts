@@ -7,40 +7,33 @@ pub contract FanfareNFTContract: NonFungibleToken {
     pub event ContractInitialized()
     pub event Withdraw(id: UInt64, from: Address?)
     pub event Deposit(id: UInt64, to: Address?)
-    pub event Minted(id: UInt64, mediaURI: String)
-
-    // Event that is emitted when a new minter resource is created
-    pub event MinterCreated()
+    pub event Minted(id: UInt64, mediaURI: String, creatorAddress: Address, recipient: Address, data: String)
 
     // Named Paths
     pub let CollectionStoragePath: StoragePath
     pub let CollectionPublicPath: PublicPath
     
-    // The storage Path for minters' MinterProxy
-    pub let MinterProxyStoragePath: StoragePath
-
-    // The public path for minters' MinterProxy capability
-    pub let MinterProxyPublicPath: PublicPath
-
-
-    // The storage path for the admin resource
-    pub let AdminStoragePath: StoragePath
-
+    //Contract Owner ContentCreator Resouce 
+    pub let ContentCreatorStoragePath: StoragePath
+    pub let ContentCreatorPrivatePath: PrivatePath
+    pub let ContentCreatorPublicPath: PublicPath 
 
     pub resource NFT: NonFungibleToken.INFT {
         pub let id: UInt64
         pub var mediaURI: String
         pub var creatorAddress: Address
+        pub var data: String
 
-        init(initID: UInt64, mediaURI: String, creatorAddress: Address) {
+        init(initID: UInt64, mediaURI: String, creatorAddress: Address, data: String) {
             self.id = initID
             self.mediaURI = mediaURI
             self.creatorAddress = creatorAddress
+            self.data = data
         }
     }
 
     pub resource interface FanfareNFTCollectionPublic {
-        pub fun deposit(token: @NonFungibleToken.NFT)
+        pub fun deposit(token: @NonFungibleToken.NFT) 
         pub fun getIDs(): [UInt64]
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT
         pub fun borrowNFTMetadata(id: UInt64): &FanfareNFTContract.NFT? {
@@ -118,89 +111,48 @@ pub contract FanfareNFTContract: NonFungibleToken {
         return <- create Collection()
     }
 
-    // Resource that an admin or something similar would own to be
-    // able to mint new NFTs
-    pub resource NFTMinter {
+    pub resource ContentCreator {
+        pub var idCount: UInt64
 
-        pub fun mintNFT(creator: Capability<&{NonFungibleToken.Receiver}>, mediaURI: String, creatorAddress: Address): &NonFungibleToken.NFT {
-            let token <- create NFT(
-                initID: FanfareNFTContract.totalSupply,
+        init(){
+            self.idCount = 1
+        }
+      
+        pub fun mintNFT(mediaURI: String, creatorAddress: Address, recipient: Address, data: String): UInt64 {
+            let token: @NFT <- create NFT(
+                initID: self.idCount,
                 mediaURI: mediaURI,
                 creatorAddress: creatorAddress,
+                data: data
             )
+            let id: UInt64 = self.idCount
+            self.idCount = self.idCount + 1
             FanfareNFTContract.totalSupply = FanfareNFTContract.totalSupply + 1
-            let tokenRef = &token as &NonFungibleToken.NFT
-            emit Minted(id: token.id, mediaURI: mediaURI)
-            creator.borrow()!.deposit(token: <- token)
-            return tokenRef
-        }
-    }
 
-    pub resource interface MinterProxyPublic {
-        pub fun setMinterCapability(cap: Capability<&NFTMinter>)
-    }
+            var receiver = getAccount(recipient).getCapability<&{FanfareNFTCollectionPublic}>(FanfareNFTContract.CollectionPublicPath)
+            let account = receiver.borrow()!
+            account.deposit(token: <- token)
 
-    // MinterProxy
-    //
-    // Resource object holding a capability that can be used to mint new tokens.
-    // The resource that this capability represents can be deleted by the admin
-    // in order to unilaterally revoke minting capability if needed.
-
-    pub resource MinterProxy: MinterProxyPublic {
-
-
-        access(self) var minterCapability: Capability<&NFTMinter>?
-
-        pub fun setMinterCapability(cap: Capability<&NFTMinter>) {
-            self.minterCapability = cap
-        }
-
-        pub fun mintNFT(creator: Capability<&{NonFungibleToken.Receiver}>, mediaURI: String, creatorAddress: Address): &NonFungibleToken.NFT {
-          return self.minterCapability!
-            .borrow()!
-            .mintNFT(creator: creator, mediaURI: mediaURI, creatorAddress: creatorAddress
-            )
-        }
-
-        init() {
-            self.minterCapability = nil
+            emit Minted(id: id, mediaURI: mediaURI, creatorAddress: creatorAddress, recipient: recipient, data: data)
+            return id
         }
 
     }
-
-    pub fun createMinterProxy(): @MinterProxy {
-        return <- create MinterProxy()
-    }
-
-
-    pub resource Administrator {
-
-        pub fun createNewMinter(): @NFTMinter {
-            emit MinterCreated()
-            return <- create NFTMinter()
-        }
-
-    }
-
-
-
 
     init() {
         self.CollectionStoragePath = /storage/FanfareNFTCollection
         self.CollectionPublicPath = /public/FanfareNFTCollection
 
-        self.AdminStoragePath = /storage/FanfareAdmin
-
-        self.MinterProxyPublicPath= /public/FanfareNFTMinterProxy
-        self.MinterProxyStoragePath= /storage/FanfareNFTMinterProxy
+        self.ContentCreatorStoragePath = /storage/FanfareContentStorage
+        self.ContentCreatorPrivatePath = /private/FanfareContentStorage
+        self.ContentCreatorPublicPath = /public/FanfareContentStorage
 
         // Initialize the total supply
         self.totalSupply = 0
 
-        let admin <- create Administrator()
-        self.account.save(<-admin, to: self.AdminStoragePath)
-
-        self.account.link<&{NonFungibleToken.Receiver}>(/public/FanfareNFTReceiver, target: /storage/FanfareNFTCollection)
+        self.account.save(<-create ContentCreator(), to: self.ContentCreatorStoragePath)
+        
+        self.account.link<&{FanfareNFTContract.FanfareNFTCollectionPublic}>(/public/FanfareNFTCollection, target: /storage/FanfareNFTCollection)
 
         emit ContractInitialized()        
     }
