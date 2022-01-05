@@ -1,5 +1,5 @@
-import NonFungibleToken from "../contracts/NonFungibleToken.cdc"
-import FanfareNFTContract from "../contracts/FanfareNFTContract.cdc"
+import NonFungibleToken from 0x1d7e57aa55817448
+import FanfareNFTContract from 0xe3d6aefbdc74f65f
 
 pub fun main(account: Address): [UInt64] {
     // Get the public collection of the owner of the token
