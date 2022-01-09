@@ -7,7 +7,7 @@ pub contract FanfareNFTContract: NonFungibleToken {
     pub event ContractInitialized()
     pub event Withdraw(id: UInt64, from: Address?)
     pub event Deposit(id: UInt64, to: Address?)
-    pub event Minted(id: UInt64, mediaURI: String, creatorAddress: Address, recipient: Address, data: String)
+    pub event Minted(id: UInt64, templateID: UInt64, creatorAddress: Address, recipient: Address, metadata: String)
 
     // Named Paths
     pub let CollectionStoragePath: StoragePath
@@ -20,15 +20,15 @@ pub contract FanfareNFTContract: NonFungibleToken {
 
     pub resource NFT: NonFungibleToken.INFT {
         pub let id: UInt64
-        pub var mediaURI: String
+        pub let templateID: UInt64
         pub var creatorAddress: Address
-        pub var data: String
+        pub var metadata: String
 
-        init(initID: UInt64, mediaURI: String, creatorAddress: Address, data: String) {
+        init(initID: UInt64, templateID: UInt64, creatorAddress: Address, metadata: String) {
             self.id = initID
-            self.mediaURI = mediaURI
+            self.templateID = templateID
             self.creatorAddress = creatorAddress
-            self.data = data
+            self.metadata = metadata
         }
     }
 
@@ -118,12 +118,12 @@ pub contract FanfareNFTContract: NonFungibleToken {
             self.idCount = 1
         }
       
-        pub fun mintNFT(mediaURI: String, creatorAddress: Address, recipient: Address, data: String): UInt64 {
+        pub fun mintNFT(creatorAddress: Address, recipient: Address, templateID: UInt64, metadata: String): UInt64 {
             let token: @NFT <- create NFT(
                 initID: self.idCount,
-                mediaURI: mediaURI,
+                templateID: templateID,
                 creatorAddress: creatorAddress,
-                data: data
+                metadata: metadata
             )
             let id: UInt64 = self.idCount
             self.idCount = self.idCount + 1
@@ -133,7 +133,7 @@ pub contract FanfareNFTContract: NonFungibleToken {
             let account = receiver.borrow()!
             account.deposit(token: <- token)
 
-            emit Minted(id: id, mediaURI: mediaURI, creatorAddress: creatorAddress, recipient: recipient, data: data)
+            emit Minted(id: id, templateID: templateID, creatorAddress: creatorAddress, recipient: recipient, metadata: metadata)
             return id
         }
 
