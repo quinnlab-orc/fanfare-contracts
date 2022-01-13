@@ -1,4 +1,4 @@
-import FanfareNFTContract from "../contracts/FanfareNFTContract.cdc"
+import FanfareNFTContract from 0xe3d6aefbdc74f65f
 
 pub fun main(account: Address, id: UInt64): &FanfareNFTContract.NFT {
     // Get the public collection of the owner of the token
